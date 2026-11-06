@@ -57,7 +57,7 @@ export function createApp({ db, pix, secret, webhookSecret, now = () => Date.now
     exige(Number.isInteger(b.tamanho_time) && b.tamanho_time >= 2, 'tamanho_time inválido');
     exige(['ALEATORIO', 'NIVEL_TECNICO'].includes(b.tipo_sorteio), 'tipo_sorteio inválido');
     const vagas = b.vagas ?? b.tamanho_time * 2;
-    exige(Number.isInteger(vagas) && vagas >= 2, 'vagas inválido');
+    exige(Number.isInteger(vagas) && vagas >= 1, 'vagas inválido');
     const { lastInsertRowid: id } = db.prepare(`INSERT INTO peladas
       (organizador_id,local,data_hora,limite_sorteio,valor_centavos,tamanho_time,vagas,tipo_sorteio)
       VALUES (?,?,?,?,?,?,?,?)`).run(req.userId, b.local, data, limite, b.valor_centavos, b.tamanho_time, vagas, b.tipo_sorteio);
