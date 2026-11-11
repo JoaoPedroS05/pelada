@@ -1,4 +1,6 @@
 import express from 'express';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { hashSenha, verificaSenha, criaToken, verificaToken } from './auth.js';
 import {
@@ -9,9 +11,11 @@ const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res)).catch(nex
 const exige = (cond, msg, status = 400) => { if (!cond) throw new HttpError(status, msg); };
 const pub = ({ senha_hash, ...u }) => ({ ...u, posicoes_secundarias: JSON.parse(u.posicoes_secundarias) });
 
-export function createApp({ db, pix, secret, webhookSecret, now = () => Date.now() }) {
+export function createApp({ db, pix, secret, webhookSecret, now = () => Date.now(), devPay = false }) {
   const app = express();
   app.use(express.json());
+  app.use(express.static(join(dirname(fileURLToPath(import.meta.url)), '..', 'public')));
+  app.get('/config', (_req, res) => res.json({ dev: devPay }));
 
   const auth = (req, _res, next) => {
     const p = verificaToken((req.headers.authorization || '').replace('Bearer ', ''), secret, now());
@@ -46,6 +50,20 @@ export function createApp({ db, pix, secret, webhookSecret, now = () => Date.now
 
   app.get('/me', auth, wrap((req, res) => res.json(pub(db.prepare('SELECT * FROM users WHERE id=?').get(req.userId)))));
 
+  app.patch('/me', auth, wrap((req, res) => {
+    const atual = db.prepare('SELECT * FROM users WHERE id=?').get(req.userId);
+    const b = req.body;
+    const nome = b.nome ?? atual.nome, apelido = b.apelido ?? atual.apelido;
+    const pos = b.posicao_principal ?? atual.posicao_principal;
+    const sec = b.posicoes_secundarias ?? JSON.parse(atual.posicoes_secundarias);
+    exige(nome && apelido, 'Nome e apelido são obrigatórios');
+    exige(['GOLEIRO', 'LINHA'].includes(pos), 'Posição inválida');
+    exige(Array.isArray(sec), 'posicoes_secundarias deve ser uma lista');
+    db.prepare('UPDATE users SET nome=?, apelido=?, posicao_principal=?, posicoes_secundarias=? WHERE id=?')
+      .run(nome, apelido, pos, JSON.stringify(sec), req.userId);
+    res.json(pub(db.prepare('SELECT * FROM users WHERE id=?').get(req.userId)));
+  }));
+
   // ---- Módulo 2: criação de peladas ----
   app.post('/peladas', auth, wrap((req, res) => {
     const b = req.body;
@@ -65,10 +83,25 @@ export function createApp({ db, pix, secret, webhookSecret, now = () => Date.now
   }));
 
   // ---- Módulo 3: detalhes, inscrição e pagamento ----
+  app.get('/peladas', auth, wrap((_req, res) => {
+    const rows = db.prepare(`SELECT * FROM peladas WHERE status != 'ENCERRADA' ORDER BY data_hora DESC LIMIT 50`).all();
+    res.json(rows.map((p) => {
+      expirarPendentes(db, p.id, now());
+      return { ...p, vagas_restantes: p.vagas - vagasOcupadas(db, p.id) };
+    }));
+  }));
+
   app.get('/peladas/:id', auth, wrap((req, res) => {
     const p = getPelada(req.params.id);
     expirarPendentes(db, p.id, now());
-    res.json({ ...p, vagas_restantes: p.vagas - vagasOcupadas(db, p.id) });
+    const souOrg = p.organizador_id === req.userId;
+    const inscritos = db.prepare(`SELECT i.user_id, i.status, i.nivel_organizador, u.apelido, u.posicao_principal posicao, u.nota_media
+      FROM inscricoes i JOIN users u ON u.id=i.user_id
+      WHERE i.pelada_id=? AND i.status IN ('CONFIRMADO','PENDENTE_PAGAMENTO') ORDER BY i.id`).all(p.id)
+      .map(({ nivel_organizador, ...r }) => (souOrg ? { ...r, nivel_organizador } : r));
+    const minha = db.prepare('SELECT status, pix_copia_cola, pix_expira_em FROM inscricoes WHERE pelada_id=? AND user_id=?')
+      .get(p.id, req.userId) || null;
+    res.json({ ...p, vagas_restantes: p.vagas - vagasOcupadas(db, p.id), inscritos, minha_inscricao: minha, sou_organizador: souOrg });
   }));
 
   app.post('/peladas/:id/inscricao', auth, wrap(async (req, res) => {
@@ -92,19 +125,29 @@ export function createApp({ db, pix, secret, webhookSecret, now = () => Date.now
     res.status(201).json({ status: 'PENDENTE_PAGAMENTO', pix_copia_cola: cobranca.copiaECola, expira_em: expira });
   }));
 
+  function confirmarPagamento(txid) {
+    const i = db.prepare('SELECT * FROM inscricoes WHERE pix_txid=?').get(txid);
+    exige(i, 'Cobrança desconhecida', 404);
+    if (i.status === 'CONFIRMADO') return;
+    const p = getPelada(i.pelada_id);
+    const livre = i.status === 'PENDENTE_PAGAMENTO' || vagasOcupadas(db, p.id) < p.vagas;
+    // Pagou após expirar e a vaga já foi tomada => marcar para reembolso
+    db.prepare('UPDATE inscricoes SET status=? WHERE id=?').run(p.status !== 'ABERTA' || !livre ? 'REEMBOLSAR' : 'CONFIRMADO', i.id);
+  }
+
   // Webhook chamado pelo gateway quando o PIX é liquidado
   app.post('/webhooks/pix', wrap((req, res) => {
     exige(req.headers['x-webhook-secret'] === webhookSecret, 'Webhook não autorizado', 401);
-    const { txid, status } = req.body;
-    const i = db.prepare('SELECT * FROM inscricoes WHERE pix_txid=?').get(txid);
-    exige(i, 'Cobrança desconhecida', 404);
-    if (status === 'PAGO' && i.status !== 'CONFIRMADO') {
-      const p = getPelada(i.pelada_id);
-      const livre = i.status === 'PENDENTE_PAGAMENTO' || vagasOcupadas(db, p.id) < p.vagas;
-      // Pagou após expirar e a vaga já foi tomada => marcar para reembolso
-      const novo = p.status !== 'ABERTA' || !livre ? 'REEMBOLSAR' : 'CONFIRMADO';
-      db.prepare('UPDATE inscricoes SET status=? WHERE id=?').run(novo, i.id);
-    }
+    if (req.body.status === 'PAGO') confirmarPagamento(req.body.txid);
+    else exige(db.prepare('SELECT 1 FROM inscricoes WHERE pix_txid=?').get(req.body.txid), 'Cobrança desconhecida', 404);
+    res.json({ ok: true });
+  }));
+
+  // Somente com gateway mock: simula a liquidação do PIX do próprio usuário
+  if (devPay) app.post('/dev/pagar', auth, wrap((req, res) => {
+    const i = db.prepare('SELECT * FROM inscricoes WHERE pelada_id=? AND user_id=?').get(req.body.pelada_id, req.userId);
+    exige(i?.pix_txid, 'Sem cobrança para pagar', 404);
+    confirmarPagamento(i.pix_txid);
     res.json({ ok: true });
   }));
 
@@ -129,6 +172,8 @@ export function createApp({ db, pix, secret, webhookSecret, now = () => Date.now
     const times = escalacao(db, p.id);
     res.json({ times, texto_whatsapp: textoWhatsApp(p, times) });
   }));
+
+  app.use((_req, _res, next) => next(new HttpError(404, 'Rota não encontrada')));
 
   app.use((err, _req, res, _next) => {
     if (!(err instanceof HttpError)) console.error(err);

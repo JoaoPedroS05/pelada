@@ -6,7 +6,7 @@ import { sortearVencidas } from './services.js';
 const db = openDb(process.env.DB_FILE || 'pelada.db');
 const secret = process.env.AUTH_SECRET || 'dev-secret';
 const app = createApp({
-  db, pix: criaGatewayPix(), secret,
+  db, pix: criaGatewayPix(), secret, devPay: (process.env.PIX_PROVIDER || 'mock') === 'mock',
   webhookSecret: process.env.PIX_WEBHOOK_SECRET || 'dev-webhook',
 });
 
