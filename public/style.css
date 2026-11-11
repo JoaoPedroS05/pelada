@@ -1,0 +1,59 @@
+:root{
+  --grama:#14532d; --grama-2:#1d6b3b; --fundo:#eef2ea; --papel:#fff; --tinta:#10231a; --suave:#51655a;
+  --linha:#c9d5c3; --amarelo:#f2c230; --amarelo-esc:#d9a916; --vermelho:#c8352b; --ok:#1d6b3b;
+  --titulo:"Barlow Condensed","Arial Narrow",system-ui,sans-serif; --corpo:"Barlow",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--fundo);color:var(--tinta);font:400 17px/1.45 var(--corpo)}
+.topo{background:var(--grama) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='120' viewBox='0 0 600 120'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.16' stroke-width='3'%3E%3Ccircle cx='520' cy='60' r='46'/%3E%3Cpath d='M520 0v120M0 12h70v96H0'/%3E%3C/g%3E%3C/svg%3E") right center/auto 100% no-repeat;color:#fff;padding:14px 16px 12px}
+.topo-in{max-width:560px;margin:0 auto}
+.marca{font:700 28px/1 var(--titulo);letter-spacing:.02em;color:#fff;text-decoration:none}
+nav.menu{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+nav.menu a,nav.menu button{font:600 15px var(--corpo);color:#fff;background:rgba(255,255,255,.12);border:0;border-radius:999px;padding:7px 14px;text-decoration:none;cursor:pointer}
+nav.menu a[aria-current="page"]{background:#fff;color:var(--grama)}
+main{max-width:560px;margin:0 auto;padding:20px 16px 56px}
+main:focus{outline:none}
+h1{font:700 34px/1.05 var(--titulo);margin:0 0 4px}
+h2{font:700 24px/1.1 var(--titulo);margin:28px 0 10px}
+.sub{color:var(--suave);margin:0 0 18px}
+.cartao{display:block;background:var(--papel);border:1px solid var(--linha);border-radius:10px;padding:14px 16px;margin:0 0 10px;color:inherit;text-decoration:none}
+a.cartao:hover{border-color:var(--grama-2)}
+.cartao .linha1{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.cartao strong{font:700 22px/1.1 var(--titulo)}
+.meta{color:var(--suave);font-size:15px}
+.etq{display:inline-block;font:600 13px var(--corpo);border-radius:4px;padding:2px 8px;background:#e1ead9;color:var(--grama)}
+.etq.pend{background:#fbeeb8;color:#6b5200}
+.etq.erro{background:#f7d9d6;color:var(--vermelho)}
+form{display:grid;gap:14px}
+label{display:grid;gap:5px;font-weight:600;font-size:15px}
+input,select,textarea{font:inherit;padding:11px 12px;border:1.5px solid var(--linha);border-radius:8px;background:#fff;color:var(--tinta);width:100%}
+textarea{font-size:14px;resize:none}
+.dupla{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+button,.btn{font:700 18px var(--titulo);letter-spacing:.02em;border:0;border-radius:8px;padding:13px 18px;cursor:pointer;background:var(--amarelo);color:var(--tinta);text-align:center;text-decoration:none;display:inline-block}
+button:hover{background:var(--amarelo-esc)}
+button.sec{background:#fff;border:1.5px solid var(--grama);color:var(--grama)}
+button.sec:hover{background:#e1ead9}
+button:disabled{opacity:.55;cursor:wait}
+:focus-visible{outline:3px solid #2563eb;outline-offset:2px}
+.aviso{border-radius:8px;padding:11px 14px;margin:0 0 14px;font-weight:500}
+.aviso.erro{background:#f7d9d6;color:#7d1d16}
+.aviso.ok{background:#dcefd8;color:#134a24}
+.pix{background:#fff;border:2px dashed var(--grama);border-radius:10px;padding:14px;display:grid;gap:10px}
+.pix p{margin:0}
+.valor{font:700 40px/1 var(--titulo)}
+.lista{list-style:none;margin:0;padding:0;background:#fff;border:1px solid var(--linha);border-radius:10px}
+.lista li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--linha)}
+.lista li:last-child{border-bottom:0}
+.lista input[type=number]{width:72px;padding:6px 8px}
+.times{display:grid;gap:12px}
+@media(min-width:520px){.times{grid-template-columns:1fr 1fr}}
+.time{background:var(--grama);color:#fff;border-radius:10px;overflow:hidden}
+.time header{padding:12px 14px;display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid rgba(255,255,255,.25)}
+.time header strong{font:700 30px/1 var(--titulo)}
+.time ul{list-style:none;margin:0;padding:6px 14px 12px}
+.time li{padding:5px 0;display:flex;gap:8px;align-items:center}
+.gk{font:600 12px var(--corpo);background:var(--amarelo);color:var(--tinta);border-radius:3px;padding:1px 6px}
+.vazio{text-align:center;color:var(--suave);padding:26px 10px}
+.acoes{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+@media(prefers-reduced-motion:no-preference){button{transition:background .15s}}

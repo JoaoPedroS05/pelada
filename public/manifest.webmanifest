@@ -1,0 +1,9 @@
+{
+  "name": "Pelada",
+  "short_name": "Pelada",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eef2ea",
+  "theme_color": "#14532d",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
