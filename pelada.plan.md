@@ -6,11 +6,11 @@ Aplicativo mobile/web para automação da gestão de peladas de futebol. O siste
 ---
 
 ## ▶️ PONTO DE RETOMADA (leia primeiro)
-- **Stack:** Node 22 + Express + better-sqlite3 (ESM). Testes: `npm test` (node:test). Rodar: `npm start`.
-- **Estado:** Fase 1 backend concluída com gateway PIX **mock**. 8 testes passando.
-- **Próximo passo:** (1) Integrar gateway PIX real (Asaas/Mercado Pago/Efí) implementando `createCharge` em `src/pix.js` e apontar o webhook deles para `POST /webhooks/pix`; (2) criar frontend (web/PWA ou React Native) consumindo a API; (3) iniciar Fase 2.
-- **Decisões de design:** valores em centavos; datas em epoch ms (API recebe ISO 8601); nº de times = max(2, floor(jogadores/tamanho_time)); goleiros excedentes viram linha; só `CONFIRMADO` entra no sorteio; PIX pago após expirar e sem vaga => `REEMBOLSAR`; sorteio automático via `setInterval` de 30s em `src/server.js`.
-- **Pendências conhecidas:** rate limit/CORS no Express; login Google/WhatsApp; fila de espera (hoje retorna 409 sem vagas); autenticação do webhook é por segredo compartilhado (trocar pela assinatura do gateway escolhido).
+- **Stack:** Node 22 + Express + better-sqlite3 (ESM); frontend em JS puro (`public/`), servido pelo próprio Express. Testes: `npm test` (11 passando). Rodar: `npm start` e abrir http://localhost:3000.
+- **Estado:** Fase 1 completa **exceto** gateway PIX real. Com `PIX_PROVIDER=mock` (padrão) o app mostra o botão "Simular pagamento (teste)" e o endpoint `POST /dev/pagar` existe só nesse modo.
+- **Próximo passo:** (1) gateway PIX real em `src/pix.js` (sugestão: Mercado Pago, que só exige e-mail do pagador; Asaas exige CPF/CNPJ do cliente) e apontar o webhook do gateway para `POST /webhooks/pix` (validar a assinatura do gateway em vez do segredo compartilhado); (2) iniciar a Fase 2 (avaliação pós-jogo); (3) PWA instalável (service worker) e QR Code do PIX.
+- **Decisões de design:** valores em centavos; datas em epoch ms (API recebe ISO 8601); nº de times = max(2, floor(jogadores/tamanho_time)); goleiros excedentes viram linha; só `CONFIRMADO` entra no sorteio; PIX pago após expirar e sem vaga => `REEMBOLSAR`; sorteio automático via `setInterval` de 30s em `src/server.js`; frontend usa hash-routing e `textContent` (sem `innerHTML`).
+- **Pendências conhecidas:** rate limit no Express; login Google/WhatsApp; fila de espera (hoje responde 409 sem vagas); frontend sem testes automatizados (só smoke manual: rotas estáticas respondem 200); token no `localStorage`.
 
 ---
 
@@ -20,7 +20,7 @@ Aplicativo mobile/web para automação da gestão de peladas de futebol. O siste
 - [x] Cadastro/Login com e-mail e senha (scrypt + token HMAC) — `src/auth.js`
 - [ ] Login com Google ou WhatsApp/Telefone.
 - [x] Perfil do Jogador: nome, apelido, posição principal, posições secundárias, nota média e partidas jogadas.
-- [ ] Edição de perfil (`PATCH /me`).
+- [x] Edição de perfil — `PATCH /me` (ainda sem tela no frontend)
 
 ### 2. Módulo de Criação & Configuração de Peladas (Organizador)
 - [x] Criação do evento: local, data/hora, horário limite, valor da cota, tamanho do time, nº de vagas, tipo de sorteio (`ALEATORIO` | `NIVEL_TECNICO`) — `POST /peladas`
@@ -39,7 +39,7 @@ Aplicativo mobile/web para automação da gestão de peladas de futebol. O siste
 - [x] Snake draft: goleiros como cabeça de chave → ordenação por nota → serpenteamento — `src/draw.js`
 - [x] Sorteio manual (organizador) e automático no horário limite
 - [x] Texto formatado para WhatsApp — `GET /peladas/:id/times`
-- [ ] Notificação push com a escalação
+- [ ] Notificação push com a escalação (hoje: botão de copiar texto)
 - [ ] Exportar escalação como imagem
 
 ### 5. Módulo de Avaliação Pós-Jogo (Fase 2)
@@ -58,7 +58,8 @@ Aplicativo mobile/web para automação da gestão de peladas de futebol. O siste
 - [x] Backend de criação de peladas com parâmetros (`tamanho_time`, `tipo_sorteio`).
 - [ ] Integração com gateway PIX real (hoje: `MockPix`).
 - [x] Algoritmo de sorteio (Aleatório e por Nível pré-cadastrado pelo organizador).
-- [ ] Frontend (web/PWA) da Fase 1.
+- [x] Frontend web da Fase 1 (`public/`): login/cadastro, lista, nova pelada, inscrição com PIX, nível por jogador, sorteio, times e cópia para WhatsApp.
+- [ ] PWA instalável (manifest já existe; falta service worker).
 
 ### Fase 2 — Avaliação Pós-Jogo & Engajamento
 - [ ] Tela de avaliação 1-5 estrelas pós-jogo.
@@ -83,6 +84,9 @@ Aplicativo mobile/web para automação da gestão de peladas de futebol. O siste
 | 1ba3235 | feat(pix): contrato de gateway PIX + implementação mock |
 | 2812c67 | feat(api): peladas, inscrição com PIX + expiração, webhook, sorteio e escalação WhatsApp |
 | d5131c2 | test(api): fluxo e2e, expiração do PIX e sorteio automático |
+| 06ef16a | feat(api): listagem de peladas, detalhes com inscritos, PATCH /me e pagamento simulado em dev |
+| acd4086 | feat(web): frontend da Fase 1 (login, peladas, inscrição com PIX, sorteio e times) |
+| (este commit) | docs(plan): frontend da Fase 1, novo ponto de retomada |
 
 ## 🔌 Referência rápida da API
-`POST /auth/register` · `POST /auth/login` · `GET /me` · `POST /peladas` · `GET /peladas/:id` · `POST /peladas/:id/inscricao` · `POST /webhooks/pix` (header `x-webhook-secret`) · `PATCH /peladas/:id/jogadores/:userId/nivel` · `POST /peladas/:id/sorteio` · `GET /peladas/:id/times`
+`POST /auth/register` · `POST /auth/login` · `GET /me` · `POST /peladas` · `GET /peladas` · `GET /peladas/:id` (inclui inscritos e `minha_inscricao`) · `PATCH /me` · `POST /dev/pagar` (só modo mock) · `GET /config` · `POST /peladas/:id/inscricao` · `POST /webhooks/pix` (header `x-webhook-secret`) · `PATCH /peladas/:id/jogadores/:userId/nivel` · `POST /peladas/:id/sorteio` · `GET /peladas/:id/times`
